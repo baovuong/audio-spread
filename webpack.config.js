@@ -1,33 +1,33 @@
-const OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin');
-const { CleanWebpackPlugin } = require('clean-webpack-plugin');
-const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-const CopyWebpackPlugin = require('copy-webpack-plugin');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
-const merge = require('webpack-merge');
-const webpack = require('webpack');
-const path = require('path');
+const OptimizeCssAssetsPlugin = require("optimize-css-assets-webpack-plugin");
+const { CleanWebpackPlugin } = require("clean-webpack-plugin");
+const MiniCssExtractPlugin = require("mini-css-extract-plugin");
+const CopyWebpackPlugin = require("copy-webpack-plugin");
+const HtmlWebpackPlugin = require("html-webpack-plugin");
+const merge = require("webpack-merge");
+const webpack = require("webpack");
+const path = require("path");
 
 const paths = {
-  src: path.resolve(__dirname, 'src'),
-  build: path.resolve(__dirname, 'build')
-}
+  src: path.resolve(__dirname, "src"),
+  build: path.resolve(__dirname, "build"),
+};
 
 const htmlConfig = {
-  template: path.join(paths.src, 'index.html'),
-  minify : {
+  template: path.join(paths.src, "index.html"),
+  minify: {
     collapseWhitespace: true,
-  }
-}
+  },
+};
 
 const common = {
-  entry: path.join(paths.src, 'index.js'),
+  entry: path.join(paths.src, "index.js"),
   resolve: {
-    extensions: ['.js', '.jsx', '.ts', '.tsx'],
+    extensions: [".js", ".jsx", ".ts", ".tsx"],
   },
   output: {
     path: paths.build,
-    filename: 'bundle.[hash].js',
-    publicPath: '/',
+    filename: "bundle.[hash].js",
+    publicPath: "/",
   },
   performance: {
     hints: false,
@@ -38,21 +38,22 @@ const common = {
         test: /\.(js|jsx)$/,
         exclude: /(node_modules)/,
         use: {
-          loader: 'babel-loader',
+          loader: "babel-loader",
           options: {
-            presets: ['@babel/env']
-          }
-        }
+            presets: ["@babel/env"],
+            plugins: ["@babel/plugin-proposal-class-properties"],
+          },
+        },
       },
       {
         test: /\.(ts)$/,
         exclude: /(node_modules)/,
         use: {
-          loader: 'awesome-typescript-loader',
+          loader: "awesome-typescript-loader",
           options: {
             useCache: false,
-          }
-        }
+          },
+        },
       },
       {
         test: /\.(css)$/,
@@ -60,10 +61,10 @@ const common = {
           {
             loader: MiniCssExtractPlugin.loader,
             options: {
-              hmr: process.env.NODE_ENV === 'development',
+              hmr: process.env.NODE_ENV === "development",
             },
           },
-          'css-loader',
+          "css-loader",
         ],
       },
       {
@@ -71,61 +72,60 @@ const common = {
         exclude: /(node_modules)/,
         use: [
           {
-            loader: 'file-loader',
-            options: {}
-          }
-        ]
-      }
-    ]
+            loader: "file-loader",
+            options: {},
+          },
+        ],
+      },
+    ],
   },
   plugins: [
     new CleanWebpackPlugin(),
     new HtmlWebpackPlugin(htmlConfig),
     new MiniCssExtractPlugin({
-      filename: '[name].css',
-      chunkFilename: '[id].css',
+      filename: "[name].css",
+      chunkFilename: "[id].css",
       ignoreOrder: false,
     }),
-  ]
+  ],
 };
 
 const devSettings = {
-  devtool: 'eval-source-map',
+  devtool: "eval-source-map",
   devServer: {
     historyApiFallback: true,
     quiet: false,
   },
-  plugins: [
-    new webpack.HotModuleReplacementPlugin(),
-    new CleanWebpackPlugin(),
-  ]
-}
+  plugins: [new webpack.HotModuleReplacementPlugin(), new CleanWebpackPlugin()],
+};
 
 const prodSettings = {
   optimization: {
     minimize: true,
   },
-  devtool: 'source-map',
+  devtool: "source-map",
   plugins: [
-    new webpack.DefinePlugin({ 'process.env': {
-      NODE_ENV: JSON.stringify('production')
-    }}),
+    new webpack.DefinePlugin({
+      "process.env": {
+        NODE_ENV: JSON.stringify("production"),
+      },
+    }),
     new OptimizeCssAssetsPlugin(),
     new webpack.optimize.OccurrenceOrderPlugin(),
-  ]
-}
+  ],
+};
 
 /**
-* Exports
-**/
+ * Exports
+ **/
 
 const TARGET = process.env.npm_lifecycle_event;
 process.env.BABEL_ENV = TARGET;
 
-if (TARGET === 'start') {
-  module.exports = merge(common, devSettings)
+if (TARGET === "start") {
+  module.exports = merge(common, devSettings);
 }
 
-if (TARGET === 'build' || !TARGET) {
-  module.exports = merge(common, prodSettings)
+if (TARGET === "build" || !TARGET) {
+  module.exports = merge(common, prodSettings);
 }

@@ -13,8 +13,12 @@ export default class Recorder extends React.Component {
       // onAnalysed: (data) => console.log(data),
     });
 
-    let isRecording = false;
-    let blob = null;
+    this.state = {
+      blob: null,
+      isRecording: false,
+      stream: null,
+      analyserData: { data: [], lineTo: 0 },
+    };
   }
 
   componentDidMount() {
@@ -42,8 +46,8 @@ export default class Recorder extends React.Component {
       <div>
         recorder
         <br />
-        <button onClick={startRecording}>record</button>
-        <button onClick={stopRecording}>stop</button>
+        <button onClick={this.startRecording}>record</button>
+        <button onClick={this.stopRecording}>stop</button>
       </div>
     );
   }
