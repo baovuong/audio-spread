@@ -35,6 +35,7 @@
     "react-redux": "^7.1.0",
     "react-router": "^5.0.1",
     "react-router-dom": "^5.0.1",
+    "recorder-js": "^1.0.7",
     "redux": "^4.0.4",
     "redux-freeze": "^0.1.5",
     "redux-logger": "^3.0.6",
