@@ -23,17 +23,20 @@ def errormessage(message, status_code):
 def upload():
   
   if 'file' not in request.files:
+    app.logger.error('No file part in the request')
     return errormessage('No file part in the request', 400)
   
   file = request.files['file']
   if file.filename == '':
+    app.logger.error('No file selected for uploading')
     return errormessage('No file selected for uploading', 400) 
 
-
   if not isaudio(file):
+    app.logger.error('file %s has mimetype %s. not audio' % (file.filename, file.mimetype))
     return errormessage('not audio', 400)
   
   # process file
+  app.logger.info('file being processed. (%s, %s)' % (file.filename, file.mimetype))
   return jsonify({
     'filename': file.filename,
     'mimetype': file.mimetype
