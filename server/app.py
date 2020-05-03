@@ -1,20 +1,65 @@
+import os 
+import ntpath 
+import mimetypes
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
+from logging.config import dictConfig
+
+from werkzeug.utils import secure_filename
+
+from rq import Queue
+from rq.job import Job
+from worker import conn
+
+# config
+dictConfig({
+    'version': 1,
+    'formatters': {'default': {
+        'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
+    }},
+    'handlers': {'wsgi': {
+        'class': 'logging.StreamHandler',
+        'stream': 'ext://flask.logging.wsgi_errors_stream',
+        'formatter': 'default'
+    }},
+    'root': {
+        'level': 'INFO',
+        'handlers': ['wsgi']
+    }
+})
+
 
 app = Flask(__name__, static_folder='../build')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+app.config['UPLOAD_FOLDER'] = 'upload_tmp/'
 CORS(app)
+
+q = Queue(connection=conn)
 
 def isaudio(file):
   return 'audio/' in file.mimetype
 
-def isvirus(file):
+def isvirus(file_path):
+  # TODO work on this 
   return False 
 
 def errormessage(message, status_code):
   resp = jsonify({'message': message})
   resp.status_code = status_code
   return resp 
+
+def save_to_dropbox(file_path):
+  # TODO work on this
+  app.logger.info('saving to dropbox')
+
+
+def process_file(file_path):
+  app.logger.info('processing %s' % ntpath.basename(file_path))
+  
+  if not isvirus(file_path):
+    save_to_dropbox(file_path)
+  else:
+    app.logger.info('%s is suspected to be a virus. deleting' % ntpath.basename(file_path))
 
 ##
 # API routes
@@ -35,8 +80,20 @@ def upload():
     app.logger.error('file %s has mimetype %s. not audio' % (file.filename, file.mimetype))
     return errormessage('not audio', 400)
   
+
+  # save file to directory
+  filename = secure_filename(file.filename)
+  upload_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+  file.save(upload_path)
+
   # process file
-  app.logger.info('file being processed. (%s, %s)' % (file.filename, file.mimetype))
+  from app import process_file
+
+  job = q.enqueue_call(
+    func=process_file, args=(upload_path,), result_ttl=5000
+  )
+  print(job.get_id())
+
   return jsonify({
     'filename': file.filename,
     'mimetype': file.mimetype
