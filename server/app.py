@@ -5,14 +5,40 @@ app = Flask(__name__, static_folder='../build')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 CORS(app)
 
+def isaudio(file):
+  return 'audio/' in file.mimetype
+
+def isvirus(file):
+  return False 
+
+def errormessage(message, status_code):
+  resp = jsonify({'message': message})
+  resp.status_code = status_code
+  return resp 
+
 ##
 # API routes
 ##
+@app.route('/api/upload', methods=['POST'])
+def upload():
+  
+  if 'file' not in request.files:
+    return errormessage('No file part in the request', 400)
+  
+  file = request.files['file']
+  if file.filename == '':
+    return errormessage('No file selected for uploading', 400) 
 
-@app.route('/api/items')
-def items():
-  '''Sample API route for data'''
-  return jsonify([{'title': 'A'}, {'title': 'B'}])
+
+  if not isaudio(file):
+    return errormessage('not audio', 400)
+  
+  # process file
+  return jsonify({
+    'filename': file.filename,
+    'mimetype': file.mimetype
+  })
+
 
 ##
 # View route
@@ -25,25 +51,6 @@ def index(path):
   #pylint: disable=unused-argument
   return send_from_directory(app.static_folder, 'index.html')
 
-@app.route('/api/upload', methods=['POST'])
-def upload():
-  
-  if 'file' not in request.files:
-    resp = jsonify({'message': 'No file part in the request'})
-    resp.status_code = 400
-    return resp
-  
-  file = request.files['file']
-  if file.filename == '':
-    resp = jsonify({'message': 'No file selected for uploading'})
-    resp.status_code = 400
-    return resp 
 
-  
-  # process file
-  return jsonify({
-    'filename': file.filename,
-    'mimetype': file.mimetype
-  })
   
   
