@@ -4,6 +4,7 @@ import mimetypes
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from logging.config import dictConfig
+import clamd
 
 from werkzeug.utils import secure_filename
 
@@ -41,6 +42,11 @@ def isaudio(file):
 
 def isvirus(file_path):
   # TODO work on this 
+  app.logger.info('scanning for viruses')
+  cd = clamd.ClamdUnixSocket()
+  result = cd.scan(os.path.abspath(file_path))
+  app.logger.info('scanned for viruses')
+  print(result)
   return False 
 
 def errormessage(message, status_code):
@@ -67,6 +73,9 @@ def process_file(file_path):
 @app.route('/api/upload', methods=['POST'])
 def upload():
   
+  name = request.args.get('name', 'unknown')
+  email = request.args.get('email', 'unknown')
+
   if 'file' not in request.files:
     app.logger.error('No file part in the request')
     return errormessage('No file part in the request', 400)
@@ -82,21 +91,21 @@ def upload():
   
 
   # save file to directory
-  filename = secure_filename(file.filename)
+  filename = name + '-' + email + '-' + secure_filename(file.filename)
   upload_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
   file.save(upload_path)
 
   # process file
-  from app import process_file
+  # from app import process_file
 
-  job = q.enqueue_call(
-    func=process_file, args=(upload_path,), result_ttl=5000
-  )
-  print(job.get_id())
+  # job = q.enqueue_call(
+  #   func=process_file, args=(upload_path,), result_ttl=5000
+  # )
+  # print(job.get_id())
+  process_file(upload_path)
 
   return jsonify({
-    'filename': file.filename,
-    'mimetype': file.mimetype
+    'message': 'Uploaded successfully.'
   })
 
 
