@@ -1,8 +1,10 @@
 import os 
 import ntpath 
 import mimetypes
+import dropbox 
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
+
 from logging.config import dictConfig
 import clamd
 
@@ -11,6 +13,8 @@ from werkzeug.utils import secure_filename
 from rq import Queue
 from rq.job import Job
 from worker import conn
+from config_variables import config
+
 
 # config
 dictConfig({
@@ -58,6 +62,10 @@ def errormessage(message, status_code):
 def save_to_dropbox(file_path):
   # TODO work on this
   app.logger.info('saving to dropbox')
+  with open(os.path.abspath(file_path), 'rb') as file:
+    dbx = dropbox.Dropbox(config['DROPBOX_ACCESS_TOKEN'])
+    contents = file.read()
+    dbx.files_upload(contents, '/' + ntpath.basename(file_path))
 
 
 def process_file(file_path):
@@ -97,13 +105,12 @@ def upload():
   file.save(upload_path)
 
   # process file
-  # from app import process_file
+  from app import process_file
 
-  # job = q.enqueue_call(
-  #   func=process_file, args=(upload_path,), result_ttl=5000
-  # )
-  # print(job.get_id())
-  process_file(upload_path)
+  job = q.enqueue_call(
+    func=process_file, args=(upload_path,), result_ttl=5000
+  )
+  print(job.get_id())
 
   return jsonify({
     'message': 'Uploaded successfully.'
