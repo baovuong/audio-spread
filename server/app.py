@@ -24,6 +24,7 @@ dictConfig({
         'formatter': 'default'
     }},
     'root': {
+        'filename': 'audio-spread.log',
         'level': 'INFO',
         'handlers': ['wsgi']
     }
