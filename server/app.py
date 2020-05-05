@@ -45,14 +45,13 @@ q = Queue(connection=conn)
 def isaudio(file):
   return 'audio/' in file.mimetype
 
-def isvirus(file_path):
+def has_virus(file_path):
   # TODO work on this 
   app.logger.info('scanning for viruses')
   cd = clamd.ClamdUnixSocket()
-  result = cd.scan(os.path.abspath(file_path))
+  result = cd.scan_file(os.path.abspath(file_path))
   app.logger.info('scanned for viruses')
-  print(result)
-  return False 
+  return result is not None 
 
 def errormessage(message, status_code):
   resp = jsonify({'message': message})
@@ -71,7 +70,7 @@ def save_to_dropbox(file_path):
 def process_file(file_path):
   app.logger.info('processing %s' % ntpath.basename(file_path))
   
-  if not isvirus(file_path):
+  if not has_virus(file_path):
     save_to_dropbox(file_path)
   else:
     app.logger.info('%s is suspected to be a virus. deleting' % ntpath.basename(file_path))
