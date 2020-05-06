@@ -40,18 +40,38 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 app.config['UPLOAD_FOLDER'] = 'upload_tmp/'
 CORS(app)
 
+app.logger.info('connecting to Redis queue')
 q = Queue(connection=conn)
+
+# clamd init
+app.logger.info('initializing Clamav')
+try:
+  cd = clamd.ClamdUnixSocket()
+  cd.ping()
+except:
+  app.logger.error('could not open clamd unix socket. attemping network socket')
+  cd = clamd.ClamdNetworkSocket()
+  try:
+    cd.ping()
+  except clamd.ConnectionError:
+    app.logger.error('could not connect to clamd server either by unix or network socket. go big or go home I guess.')
+    cd = None 
+
+# dropbox init
+app.logger.info('initializing Dropbox')
+dbx = dropbox.Dropbox(config['DROPBOX_ACCESS_TOKEN'])
 
 def isaudio(file):
   return 'audio/' in file.mimetype
 
 def has_virus(file_path):
-  # TODO work on this 
+  if cd is None:
+    return False 
   app.logger.info('scanning for viruses')
-  cd = clamd.ClamdUnixSocket()
-  result = cd.scan_file(os.path.abspath(file_path))
+  result = cd.scan(os.path.abspath(file_path))
   app.logger.info('scanned for viruses')
-  return result is not None 
+  app.logger.info('scan results: %s, %s' % (result[os.path.abspath(file_path)][0], result[os.path.abspath(file_path)][1]))
+  return result[os.path.abspath(file_path)][1] is not None 
 
 def errormessage(message, status_code):
   resp = jsonify({'message': message})
@@ -62,7 +82,6 @@ def save_to_dropbox(file_path):
   # TODO work on this
   app.logger.info('saving to dropbox')
   with open(os.path.abspath(file_path), 'rb') as file:
-    dbx = dropbox.Dropbox(config['DROPBOX_ACCESS_TOKEN'])
     contents = file.read()
     dbx.files_upload(contents, '/' + ntpath.basename(file_path))
 
