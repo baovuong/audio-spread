@@ -1,0 +1,33 @@
+version: '3.7'
+
+services:
+
+  av:
+    image: mkodockx/docker-clamav:alpine
+    container_name: nextav
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: unless-stopped
+  
+  worker:
+    build: .
+  
+  api:
+    build: .
+    ports: "5000:5000"
+    links:
+      - av:av
+      - redis
+    depends_on: 
+      - av
+      - redis
+    networks:
+      outpost_network:
+      default:
+  
+networks:
+  outpost_network:
+    external: true
