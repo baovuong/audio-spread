@@ -14,7 +14,7 @@
     "build": "webpack --config webpack.config.js --mode=production",
     "compress": "webpack --config webpack.config.js --mode=production",
     "production": "npm run build && npm run serve",
-    "serve": "mkdir -p upload_tmp && python server/worker.py & FLASK_APP=server/app.py flask run --host=0.0.0.0 --port=7082",
+    "serve": "mkdir -p upload_tmp && celery -A server.celery worker --loglevel=info & FLASK_APP=server flask run --host=0.0.0.0 --port=7082",
     "lint-js": "eslint -c './src/config/.eslintrc.js' src/",
     "lint-py": "pylint server/app.py",
     "lint": "npm run lint-js && npm run lint-py",

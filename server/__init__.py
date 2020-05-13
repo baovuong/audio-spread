@@ -4,16 +4,17 @@ import mimetypes
 import dropbox 
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-
+from celery import Celery 
+from celery.utils.log import get_task_logger
 from logging.config import dictConfig
 import clamd
+from datetime import datetime
 
 from werkzeug.utils import secure_filename
 
 from rq import Queue
 from rq.job import Job
-from worker import conn
-from config_variables import config
+from server.config_variables import config
 
 
 # config
@@ -34,14 +35,36 @@ dictConfig({
     }
 })
 
+# celery
+def make_celery(app):
+  celery = Celery(
+    app.import_name,
+    backend=app.config['CELERY_RESULT_BACKEND'],
+    broker=app.config['CELERY_BROKER_URL']
+  )
+  celery.conf.update(app.config)
 
+  class ContextTask(celery.Task):
+    def __call__(self, *args, **kwargs):
+      with app.app_context():
+        return self.run(*args, **kwargs)
+  
+  celery.Task = ContextTask
+  return celery
+
+
+# app
 app = Flask(__name__, static_folder='../build')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 app.config['UPLOAD_FOLDER'] = 'upload_tmp/'
+app.config.update(
+  CELERY_BROKER_URL='redis://localhost:6379',
+  CELERY_RESULT_BACKEND='redis://localhost:6379'
+)
 CORS(app)
 
-app.logger.info('connecting to Redis queue')
-q = Queue(connection=conn)
+celery = make_celery(app)
+celery_logger = get_task_logger(__name__)
 
 # clamd init
 app.logger.info('initializing Clamav')
@@ -61,16 +84,19 @@ except:
 app.logger.info('initializing Dropbox')
 dbx = dropbox.Dropbox(config['DROPBOX_ACCESS_TOKEN'])
 
+
+
+
 def isaudio(file):
   return 'audio/' in file.mimetype
 
 def has_virus(file_path):
   if cd is None:
     return False 
-  app.logger.info('scanning for viruses')
+  celery_logger.info('scanning for viruses')
   result = cd.scan(os.path.abspath(file_path))
-  app.logger.info('scanned for viruses')
-  app.logger.info('scan results: %s, %s' % (result[os.path.abspath(file_path)][0], result[os.path.abspath(file_path)][1]))
+  celery_logger.info('scanned for viruses')
+  celery_logger.info('scan results: %s, %s' % (result[os.path.abspath(file_path)][0], result[os.path.abspath(file_path)][1]))
   return result[os.path.abspath(file_path)][1] is not None 
 
 def errormessage(message, status_code):
@@ -80,19 +106,19 @@ def errormessage(message, status_code):
 
 def save_to_dropbox(file_path):
   # TODO work on this
-  app.logger.info('saving to dropbox')
+  celery_logger.info('saving to dropbox')
   with open(os.path.abspath(file_path), 'rb') as file:
     contents = file.read()
     dbx.files_upload(contents, '/' + ntpath.basename(file_path))
 
-
+@celery.task()
 def process_file(file_path):
-  app.logger.info('processing %s' % ntpath.basename(file_path))
+  celery_logger.info('processing %s' % ntpath.basename(file_path))
   
   if not has_virus(file_path):
     save_to_dropbox(file_path)
   else:
-    app.logger.info('%s is suspected to be a virus. deleting' % ntpath.basename(file_path))
+    celery_logger.info('%s is suspected to be a virus. deleting' % ntpath.basename(file_path))
 
 ##
 # API routes
@@ -118,17 +144,15 @@ def upload():
   
 
   # save file to directory
-  filename = name + '-' + email + '-' + secure_filename(file.filename)
+  dateTimeObj = datetime.now()
+ 
+  timestampStr = dateTimeObj.strftime("%d-%b-%Y (%H:%M:%S.%f)")
+  filename = timestampStr + '-' + name + '-' + email + '-' + secure_filename(file.filename)
   upload_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
   file.save(upload_path)
 
   # process file
-  from app import process_file
-
-  job = q.enqueue_call(
-    func=process_file, args=(upload_path,), result_ttl=5000
-  )
-  print(job.get_id())
+  process_file.delay(upload_path)
 
   return jsonify({
     'message': 'Uploaded successfully.'
