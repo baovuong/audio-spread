@@ -1,0 +1,42 @@
+version: "3"
+
+services:
+  av:
+    #debian: image: mkodockx/docker-clamav
+    image: mkodockx/docker-clamav:alpine
+    container_name: nextav
+    restart: unless-stopped
+  
+  web:
+    container_name: web
+    build: ./server
+    ports:
+      - "5000:5000"
+    links:
+      - av:av
+      - redis
+    depends_on:
+      - av
+      - redis
+    environment:
+      - FLASK_ENV=development
+    volumes:
+      - ./server:/app
+
+  redis:
+    container_name: redis
+    image: redis:5.0.5
+    hostname: redis
+
+  worker:
+    build:
+      context: ./server
+    hostname: worker
+    entrypoint: celery
+    command: -A celery_app.celery worker --loglevel=info
+    volumes:
+      - ./server:/app
+    links:
+      - redis
+    depends_on:
+      - redis
