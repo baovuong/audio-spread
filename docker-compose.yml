@@ -3,8 +3,8 @@ version: "3"
 services:
   av:
     #debian: image: mkodockx/docker-clamav
-    image: mkodockx/docker-clamav:alpine
-    container_name: nextav
+    image: mkodockx/docker-clamav:alpine-edge
+    container_name: av
     restart: unless-stopped
   
   web:
@@ -13,7 +13,6 @@ services:
     ports:
       - "5000:5000"
     links:
-      - av:av
       - redis
     depends_on:
       - av
@@ -37,6 +36,8 @@ services:
     volumes:
       - ./server:/app
     links:
+      - av
       - redis
     depends_on:
+      - av
       - redis
